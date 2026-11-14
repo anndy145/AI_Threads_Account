@@ -9,7 +9,15 @@
   <body>
     <main>
       <h1>Threads AI 帳號標記</h1>
-      <p></p>
+      <form id="account-search">
+        <label for="account">查詢帳號</label>
+        <div class="search-row">
+          <input id="account" type="search" placeholder="@帳號或 Threads 網址"
+                 autocomplete="off" spellcheck="false" aria-describedby="search-result">
+          <button type="submit">搜尋</button>
+        </div>
+        <p id="search-result" role="status"></p>
+      </form>
       <section aria-labelledby="edit-list-title">
         <h2 id="edit-list-title">更新名單</h2>
         <ol>
@@ -20,5 +28,7 @@
         </ol>
       </section>
     </main>
+    <script src="account-list.js"></script>
+    <script src="popup.js"></script>
   </body>
 </html>

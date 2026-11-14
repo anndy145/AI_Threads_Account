@@ -1,35 +1,8 @@
 (() => {
   const BADGE_CLASS = "threads-ai-marker-badge";
   const MARKED_ATTR = "data-threads-ai-marker";
-  const HANDLE_PATTERN = /^\/@([a-z0-9._-]+)(?:\/|$)/i;
+  const { normaliseHandle, loadHandles } = accountList;
   const POST_PATH = /^\/@[^/]+\/post\/[^/]+\/?$/i;
-
-  function normaliseHandle(value) {
-    const trimmed = value.trim();
-    if (!trimmed || trimmed.startsWith("#")) return null;
-
-    try {
-      const url = new URL(trimmed, "https://www.threads.com/");
-      if (url.hostname !== "www.threads.com" && url.hostname !== "threads.com") return null;
-      const match = url.pathname.match(HANDLE_PATTERN);
-      return match ? match[1].toLowerCase() : null;
-    } catch {
-      return null;
-    }
-  }
-
-  async function loadHandles() {
-    const listUrl = chrome.runtime.getURL("threads_list.txt");
-    const response = await fetch(listUrl);
-    if (!response.ok) throw new Error(`無法讀取名單：${response.status}`);
-
-    return new Set(
-      (await response.text())
-        .split(/\r?\n/)
-        .map(normaliseHandle)
-        .filter(Boolean),
-    );
-  }
 
   function addBadge(name) {
     const badge = document.createElement("span");
