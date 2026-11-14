@@ -7,19 +7,24 @@
   "content_scripts": [
     {
       "matches": ["https://www.threads.com/*", "https://threads.com/*"],
-      "js": ["account-list.js", "threads-profile-api.js", "profile-location.js", "content.js"],
-      "css": ["content.css"],
+      "js": [
+        "shared/account-list.js",
+        "content/threads-profile-api.js",
+        "content/profile-location.js",
+        "content/content.js"
+      ],
+      "css": ["content/content.css"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["threads_list.txt"],
+      "resources": ["data/threads_list.txt"],
       "matches": ["https://www.threads.com/*", "https://threads.com/*"]
     }
   ],
   "action": {
     "default_title": "Threads AI 帳號標記",
-    "default_popup": "popup.html"
+    "default_popup": "popup/popup.html"
   }
 }

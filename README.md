@@ -1,6 +1,6 @@
 # Threads AI 帳號標記（MVP）
 
-這個擴充功能讀取你手動維護的 `threads_list.txt`。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。
+這個擴充功能讀取你手動維護的 `data/threads_list.txt`。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。
 
 ## 安裝
 
@@ -21,7 +21,7 @@
 
 ## 維護名單
 
-編輯 `threads_list.txt`，一行一個帳號，支援下列兩種格式：
+編輯 `data/threads_list.txt`，一行一個帳號，支援下列兩種格式：
 
 ```text
 https://www.threads.com/@example
