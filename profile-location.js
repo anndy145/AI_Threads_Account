@@ -60,22 +60,29 @@ const profileLocation = (() => {
   const statuses = new Map();
   const MAX_CONCURRENT_LOOKUPS = 2;
   const queue = [];
+  const queuedLookups = new Map();
   let activeLookups = 0;
 
   function processQueue() {
     while (activeLookups < MAX_CONCURRENT_LOOKUPS && queue.length > 0) {
+      const visibleIndex = queue.findIndex(job => job.visibility.some(isVisible => isVisible()));
+      const [job] = queue.splice(Math.max(0, visibleIndex), 1);
+      queuedLookups.delete(job.handle);
       activeLookups++;
-      queue.shift()().finally(() => {
+      job.run().finally(() => {
         activeLookups--;
         processQueue();
       });
     }
   }
 
-  function lookup(handle, onStart) {
+  function lookup(handle, onStart, isVisible) {
     const cached = read(handle);
     if (cached !== null) return Promise.resolve(cached);
-    if (results.has(handle)) return results.get(handle);
+    if (results.has(handle)) {
+      if (isVisible) queuedLookups.get(handle)?.visibility.push(isVisible);
+      return results.get(handle);
+    }
     if (Date.now() - (attempts.get(handle) || 0) < 60000) return Promise.resolve(null);
     statuses.set(handle, { label: "地點查詢排隊中" });
     const run = async () => {
@@ -101,7 +108,9 @@ const profileLocation = (() => {
       }
     };
     const task = new Promise(resolve => {
-      queue.push(async () => resolve(await run()));
+      const job = { handle, visibility: isVisible ? [isVisible] : [], run: async () => resolve(await run()) };
+      queue.push(job);
+      queuedLookups.set(handle, job);
     });
     results.set(handle, task);
     processQueue();

@@ -19,7 +19,14 @@
           updateBadge(badge, handle);
         }
       };
-      profileLocation.lookup(handle, refresh).then(refresh);
+      const isVisible = () => {
+        if (!target.isConnected || !badge.isConnected || badge.getAttribute(MARKED_ATTR) !== handle) return false;
+        const rect = target.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0
+          && rect.bottom > 0 && rect.top < window.innerHeight
+          && rect.right > 0 && rect.left < window.innerWidth;
+      };
+      profileLocation.lookup(handle, refresh, isVisible).then(refresh);
       refresh();
     }
   });
@@ -37,7 +44,6 @@
   function addBadge(name, handle, listed) {
     const badge = document.createElement("span");
     badge.className = BADGE_CLASS;
-    badge.setAttribute(MARKED_ATTR, handle);
     badge.setAttribute("role", "note");
     const location = document.createElement("span");
     location.className = "threads-ai-marker-pill threads-ai-marker-location";
