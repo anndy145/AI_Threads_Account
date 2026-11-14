@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.threads.com/*", "https://threads.com/*"],
-      "js": ["account-list.js", "content.js"],
+      "js": ["account-list.js", "threads-profile-api.js", "profile-location.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

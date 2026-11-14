@@ -3,14 +3,64 @@
   const MARKED_ATTR = "data-threads-ai-marker";
   const { normaliseHandle, loadHandles } = accountList;
   const POST_PATH = /^\/@[^/]+\/post\/[^/]+\/?$/i;
+  const INITIAL_QUERY_DELAY_MS = 1000;
+  const pendingAuthors = new Set();
+  let autoQueryReady = false;
+  const badgesByAuthor = new WeakMap();
+  const visibleAuthors = new IntersectionObserver(entries => {
+    for (const { target, isIntersecting } of entries) {
+      if (!isIntersecting) continue;
+      visibleAuthors.unobserve(target);
+      const badge = badgesByAuthor.get(target);
+      if (!badge?.isConnected) continue;
+      const handle = badge.getAttribute(MARKED_ATTR);
+      const refresh = () => {
+        if (badge.isConnected && badge.getAttribute(MARKED_ATTR) === handle) {
+          updateBadge(badge, handle);
+        }
+      };
+      profileLocation.lookup(handle, refresh).then(refresh);
+      refresh();
+    }
+  });
 
-  function addBadge(name) {
+  function observeAuthor(name, badge) {
+    const author = name.parentElement.closest("a");
+    badgesByAuthor.set(author, badge);
+    if (autoQueryReady) {
+      visibleAuthors.observe(author);
+    } else {
+      pendingAuthors.add(author);
+    }
+  }
+
+  function addBadge(name, handle, listed) {
     const badge = document.createElement("span");
     badge.className = BADGE_CLASS;
-    badge.setAttribute(MARKED_ATTR, "");
+    badge.setAttribute(MARKED_ATTR, handle);
     badge.setAttribute("role", "note");
-    badge.textContent = "AI 名單標記";
+    const location = document.createElement("span");
+    location.className = "threads-ai-marker-pill threads-ai-marker-location";
+    const ai = document.createElement("span");
+    ai.className = "threads-ai-marker-pill threads-ai-marker-listed";
+    ai.textContent = "AI 名單標記";
+    badge.append(location, ai);
+    updateBadge(badge, handle, listed);
     name.after(badge);
+    observeAuthor(name, badge);
+  }
+
+  function updateBadge(badge, handle, listed = !badge.lastElementChild.hidden) {
+    badge.setAttribute(MARKED_ATTR, handle);
+    badge.lastElementChild.hidden = !listed;
+    const location = profileLocation.read(handle);
+    const status = profileLocation.status(handle);
+    const locationText = location === null ? status?.label || "等待查詢地點" : location || "無顯示地點";
+    const locationBadge = badge.firstElementChild;
+    if (locationBadge.textContent !== locationText) locationBadge.textContent = locationText;
+    locationBadge.title = location === null
+      ? status?.detail || locationText
+      : "";
   }
 
   function findAuthorName(permalink, handle) {
@@ -41,24 +91,30 @@
       const permalink = time.parentElement;
       if (!POST_PATH.test(permalink.pathname)) return;
       const handle = normaliseHandle(permalink.href);
-      if (!handles.has(handle)) return;
+      if (!handle) return;
       const post = permalink.pathname.replace(/\/$/, "");
       if (markedPosts.has(post)) return;
       const name = findAuthorName(permalink, handle);
       if (!name) return;
       markedPosts.add(post);
-      if (!name.nextSibling?.hasAttribute?.(MARKED_ATTR)) addBadge(name);
+      const badge = name.nextSibling;
+      if (badge?.hasAttribute?.(MARKED_ATTR)) {
+        if (badge.getAttribute(MARKED_ATTR) !== handle) observeAuthor(name, badge);
+        updateBadge(badge, handle, handles.has(handle));
+      } else {
+        addBadge(name, handle, handles.has(handle));
+      }
     });
   }
 
   async function start() {
     try {
       const handles = await loadHandles();
-      if (!handles.size) return;
 
       let scheduled = false;
       const scan = () => {
         scheduled = false;
+        profileLocation.capture();
         markKnownAccounts(handles);
       };
       const scheduleScan = () => {
@@ -71,12 +127,21 @@
       scan();
       new MutationObserver(scheduleScan).observe(document.documentElement, {
         childList: true,
+        characterData: true,
         subtree: true,
       });
     } catch (error) {
       console.warn("[Threads AI 帳號標記] 啟動失敗", error);
     }
   }
+
+  setTimeout(() => {
+    autoQueryReady = true;
+    for (const author of pendingAuthors) {
+      if (author.isConnected) visibleAuthors.observe(author);
+    }
+    pendingAuthors.clear();
+  }, INITIAL_QUERY_DELAY_MS);
 
   start();
 })();

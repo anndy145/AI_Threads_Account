@@ -1,8 +1,14 @@
 .threads-ai-marker-badge {
   display: inline-flex;
+  gap: 4px;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+}
+
+.threads-ai-marker-pill {
+  display: inline-flex;
   align-items: center;
   box-sizing: border-box;
-  margin: 0 0 0 6px;
   padding: 2px 7px;
   border: 1px solid #b74718;
   border-radius: 999px;
@@ -17,10 +23,30 @@
   white-space: nowrap;
 }
 
+.threads-ai-marker-pill[hidden] {
+  display: none;
+}
+
+.threads-ai-marker-location {
+  border-color: #3975ad;
+  background: #edf6ff;
+  color: #164b7b;
+}
+
 @media (prefers-color-scheme: dark) {
-  .threads-ai-marker-badge {
+  .threads-ai-marker-pill {
     border-color: #ff9e75;
     background: #4c1f10;
     color: #ffd8c7;
   }
+
+  .threads-ai-marker-location {
+    border-color: #76b0ea;
+    background: #142e48;
+    color: #d4eaff;
+  }
+}
+
+.threads-ai-marker-listed {
+  font-weight: 800;
 }
