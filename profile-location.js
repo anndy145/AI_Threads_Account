@@ -1,5 +1,7 @@
 const profileLocation = (() => {
-  const prefix = "threads-author-location:v3:";
+  const prefix = "threads-author-location:v4:";
+  const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+  const cache = new Map();
   const headings = /^(關於(?:此|這個|這份)個人檔案|关于此个人主页|About this profile)$/i;
   const labels = /^(?:帳號)?(?:所在地點|所在地|所在地区|所在地區|位置)|^(?:Account )?Based in/i;
   const nameLabel = /^(名稱|名字|Name)[:：]?$/i;
@@ -22,10 +24,34 @@ const profileLocation = (() => {
   }
 
   function read(handle) {
+    const entry = cache.get(handle);
+    return entry?.expiresAt > Date.now() ? entry.value : null;
+  }
+
+  async function readStored(handle) {
+    const key = prefix + handle;
     try {
-      return sessionStorage.getItem(prefix + handle);
+      const entry = (await chrome.storage.local.get(key))[key];
+      const current = read(handle);
+      if (current !== null) return current;
+      if (typeof entry?.value === "string" && entry.expiresAt > Date.now()) {
+        cache.set(handle, entry);
+        return entry.value;
+      }
+      if (entry !== undefined) await chrome.storage.local.remove(key);
     } catch {
-      return null;
+      // Storage failures still allow a fresh lookup.
+    }
+    return read(handle);
+  }
+
+  async function save(handle, value) {
+    const entry = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    cache.set(handle, entry);
+    try {
+      await chrome.storage.local.set({ [prefix + handle]: entry });
+    } catch {
+      // Keep using the in-memory result if storage is unavailable.
     }
   }
 
@@ -57,12 +83,12 @@ const profileLocation = (() => {
       statuses.set(handle, { label: "查詢地點中" });
       try {
         onStart?.();
-        const current = read(handle);
+        const current = await readStored(handle);
         if (current !== null) return current;
         const value = await threadsProfileApi.lookup(handle);
         const captured = read(handle);
         if (captured !== null) return captured;
-        if (value !== null) sessionStorage.setItem(prefix + handle, value);
+        if (typeof value === "string") await save(handle, value);
         return value;
       } catch (error) {
         statuses.set(handle, {
@@ -97,12 +123,7 @@ const profileLocation = (() => {
       const hasProfileFields = nameIndex >= 0 && panelHandle === handle && lines.some(line => joinedLabel.test(line));
       if (!hasProfileFields && !lines.some(line => headings.test(line))) continue;
       const value = parse(lines);
-      if (value === undefined) continue;
-      try {
-        sessionStorage.setItem(prefix + handle, value);
-      } catch {
-        return;
-      }
+      if (value !== undefined && read(handle) !== value) void save(handle, value);
     }
   }
 

@@ -3,7 +3,7 @@
   "name": "Threads AI 帳號標記",
   "version": "0.1.0",
   "description": "依本機維護的名單，在 Threads 上標記可能由 AI 生成的帳號。",
-  "permissions": [],
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://www.threads.com/*", "https://threads.com/*"],
