@@ -1,6 +1,11 @@
-# Threads AI 帳號標記（MVP）
+# Threads AI 帳號標記
 
-這個擴充功能是我手動維護的清單: [`threads_list`](https://github.com/anndy145/AI_Threads_Account/blob/main/data/threads_list.txt)。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。
+## 為甚麼做這個專案
+
+Instagram已經[明確規定](https://creators.instagram.com/blog/ai-generated-profile-label)如果是AI生成的個人資料，必須要標註為AI生成的個人檔案。但是我看到threads上看到很多帳號開patreon卻都不明確標示自己是AI生成的人物，所以我才做了這個專案。
+
+目前這個擴充功能是我手動維護的清單: [`threads_list`](https://github.com/anndy145/AI_Threads_Account/blob/main/data/threads_list.txt)。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。  
+此外我也做了顯示這個帳號的所在地的功能。
 
 AI相片檢測是用:
 
