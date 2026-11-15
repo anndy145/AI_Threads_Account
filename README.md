@@ -1,6 +1,11 @@
 # Threads AI 帳號標記（MVP）
 
-這個擴充功能讀取你手動維護的 `data/threads_list.txt`。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。
+這個擴充功能是我手動維護的清單: `data/threads_list.txt`。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。
+
+AI相片檢測是用:
+
+- https://synthid.com/
+- https://openai.com/zh-Hant/research/verify/
 
 ## 安裝
 
