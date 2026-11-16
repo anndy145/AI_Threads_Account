@@ -10,11 +10,19 @@
     <main>
       <h1>Threads AI 帳號標記</h1>
       <form id="account-search">
-        <label for="account">查詢帳號</label>
+        <label for="account">Threads 帳號</label>
         <div class="search-row">
           <input id="account" type="search" placeholder="@帳號或 Threads 網址"
                  autocomplete="off" spellcheck="false" aria-describedby="search-result">
           <button type="submit">搜尋</button>
+        </div>
+        <label for="account-type">新增標記類型</label>
+        <div class="search-row">
+          <select id="account-type">
+            <option value="ai">AI 帳號</option>
+            <option value="green">白名單</option>
+          </select>
+          <button type="submit" value="add">新增標記</button>
         </div>
         <p id="search-result" role="status"></p>
       </form>

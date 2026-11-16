@@ -50,3 +50,17 @@
 .threads-ai-marker-listed {
   font-weight: 800;
 }
+
+.threads-ai-marker-green {
+  border-color: #43845c;
+  background: #edf8ef;
+  color: #21543a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .threads-ai-marker-green {
+    border-color: #78be91;
+    background: #163525;
+    color: #c9f2d5;
+  }
+}

@@ -41,7 +41,7 @@
     }
   }
 
-  function addBadge(name, handle, listed) {
+  function addBadge(name, handle, marks) {
     const badge = document.createElement("span");
     badge.className = BADGE_CLASS;
     badge.setAttribute("role", "note");
@@ -50,15 +50,21 @@
     const ai = document.createElement("span");
     ai.className = "threads-ai-marker-pill threads-ai-marker-listed";
     ai.textContent = "AI 名單標記";
-    badge.append(location, ai);
-    updateBadge(badge, handle, listed);
+    const green = document.createElement("span");
+    green.className = "threads-ai-marker-pill threads-ai-marker-green";
+    green.textContent = "白名單";
+    badge.append(location, ai, green);
+    updateBadge(badge, handle, marks);
     name.after(badge);
     observeAuthor(name, badge);
   }
 
-  function updateBadge(badge, handle, listed = !badge.lastElementChild.hidden) {
+  function updateBadge(badge, handle, marks) {
     badge.setAttribute(MARKED_ATTR, handle);
-    badge.lastElementChild.hidden = !listed;
+    if (marks) {
+      badge.children[1].hidden = !marks.ai.has(handle);
+      badge.children[2].hidden = !marks.green.has(handle);
+    }
     const location = profileLocation.read(handle);
     const status = profileLocation.status(handle);
     const locationText = location === null ? status?.label || "等待查詢地點" : location || "無顯示地點";
@@ -106,16 +112,16 @@
       const badge = name.nextSibling;
       if (badge?.hasAttribute?.(MARKED_ATTR)) {
         if (badge.getAttribute(MARKED_ATTR) !== handle) observeAuthor(name, badge);
-        updateBadge(badge, handle, handles.has(handle));
+        updateBadge(badge, handle, handles);
       } else {
-        addBadge(name, handle, handles.has(handle));
+        addBadge(name, handle, handles);
       }
     });
   }
 
   async function start() {
     try {
-      const handles = await loadHandles();
+      let handles = await loadHandles();
 
       let scheduled = false;
       const scan = () => {
@@ -131,6 +137,15 @@
       };
 
       scan();
+      chrome.storage.onChanged.addListener(async (changes, area) => {
+        if (area !== "local" || !Object.keys(changes).some(key => key.startsWith(accountList.manualPrefix))) return;
+        try {
+          handles = await loadHandles();
+          scheduleScan();
+        } catch (error) {
+          console.warn("[Threads AI 帳號標記] 名單更新失敗", error);
+        }
+      });
       new MutationObserver(scheduleScan).observe(document.documentElement, {
         childList: true,
         characterData: true,
