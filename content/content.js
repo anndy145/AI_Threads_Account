@@ -66,8 +66,9 @@
   function updateBadge(badge, handle, marks) {
     badge.setAttribute(MARKED_ATTR, handle);
     if (marks) {
-      badge.children[1].hidden = !marks.ai.has(handle);
-      badge.children[2].hidden = !marks.green.has(handle);
+      const allowlisted = marks.green.has(handle);
+      badge.children[1].hidden = allowlisted || !marks.ai.has(handle);
+      badge.children[2].hidden = !allowlisted;
     }
     const location = profileLocation.read(handle);
     const status = profileLocation.status(handle);
@@ -78,8 +79,10 @@
       ? status?.detail || locationText
       : "";
     const topicBadge = badge.children[3];
-    const topicError = profileLocation.topicError(handle);
-    const topicText = profileLocation.topics(handle)?.join(" · ") || (topicError ? "主題查詢失敗" : "");
+    const allowlisted = !badge.children[2].hidden;
+    const topicError = allowlisted ? "" : profileLocation.topicError(handle);
+    const topics = allowlisted ? "" : profileLocation.topics(handle)?.join(" · ");
+    const topicText = topics || (topicError ? "主題查詢失敗" : "");
     if (topicBadge.textContent !== topicText) topicBadge.textContent = topicText;
     topicBadge.title = topicError || "";
     topicBadge.hidden = !topicText;

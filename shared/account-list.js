@@ -21,21 +21,34 @@ const accountList = (() => {
     const response = await fetch(chrome.runtime.getURL("data/threads_list.txt"));
     if (!response.ok) throw new Error("無法讀取名單：" + response.status);
     const ai = new Set((await response.text()).split(/\r?\n/).map(normaliseHandle).filter(Boolean));
-    const green = new Set();
+    const manual = await loadManualHandles();
+    for (const handle of manual.ai) ai.add(handle);
+    return { ai, green: manual.green };
+  }
+
+  async function loadManualHandles() {
+    const lists = { ai: new Set(), green: new Set() };
     const stored = await chrome.storage.local.get(null);
     for (const [key, value] of Object.entries(stored)) {
       if (!key.startsWith(manualPrefix) || value !== true) continue;
       const [type, handle] = key.slice(manualPrefix.length).split(":");
-      if (type === "ai") ai.add(handle);
-      if (type === "green") green.add(handle);
+      if (handle && (type === "ai" || type === "green")) lists[type].add(handle);
     }
-    return { ai, green };
+    return lists;
+  }
+
+  function manualKey(handle, type) {
+    if (type !== "ai" && type !== "green") throw new Error("未知的標記類型");
+    return manualPrefix + type + ":" + handle;
   }
 
   function add(handle, type) {
-    if (type !== "ai" && type !== "green") throw new Error("未知的標記類型");
-    return chrome.storage.local.set({ [manualPrefix + type + ":" + handle]: true });
+    return chrome.storage.local.set({ [manualKey(handle, type)]: true });
   }
 
-  return { normaliseHandle, loadHandles, add, manualPrefix };
+  function remove(handle, type) {
+    return chrome.storage.local.remove(manualKey(handle, type));
+  }
+
+  return { normaliseHandle, loadHandles, loadManualHandles, add, remove, manualPrefix };
 })();
