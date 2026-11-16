@@ -34,6 +34,8 @@ const accountList = (() => {
       const [type, handle] = key.slice(manualPrefix.length).split(":");
       if (handle && (type === "ai" || type === "green")) lists[type].add(handle);
     }
+    // Older versions could store both marks. Preserve the existing allowlist priority.
+    for (const handle of lists.green) lists.ai.delete(handle);
     return lists;
   }
 
@@ -43,11 +45,15 @@ const accountList = (() => {
   }
 
   function add(handle, type) {
-    return chrome.storage.local.set({ [manualKey(handle, type)]: true });
+    const key = manualKey(handle, type);
+    const previousKey = manualKey(handle, type === "ai" ? "green" : "ai");
+    return chrome.storage.local.set({ [key]: true, [previousKey]: false });
   }
 
   function remove(handle, type) {
-    return chrome.storage.local.remove(manualKey(handle, type));
+    const key = manualKey(handle, type);
+    // Removing a legacy allowlist mark must not revive its hidden AI mark.
+    return chrome.storage.local.remove(type === "green" ? [key, manualKey(handle, "ai")] : key);
   }
 
   return { normaliseHandle, loadHandles, loadManualHandles, add, remove, manualPrefix };
