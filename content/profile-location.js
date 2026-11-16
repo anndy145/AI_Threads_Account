@@ -62,14 +62,14 @@ const profileLocation = (() => {
   const statuses = new Map();
   const MAX_CONCURRENT_LOOKUPS = 2;
   const queue = [];
-  const queuedLookups = new Map();
+  const lookupJobs = new Map();
+  const pendingRetries = new Map();
   let activeLookups = 0;
 
   function processQueue() {
     while (activeLookups < MAX_CONCURRENT_LOOKUPS && queue.length > 0) {
       const visibleIndex = queue.findIndex(job => job.visibility.some(isVisible => isVisible()));
       const [job] = queue.splice(Math.max(0, visibleIndex), 1);
-      queuedLookups.delete(job.handle);
       activeLookups++;
       job.run().finally(() => {
         activeLookups--;
@@ -78,15 +78,28 @@ const profileLocation = (() => {
     }
   }
 
-  function lookup(handle, onUpdate, isVisible) {
+  function lookup(handle, onUpdate, isVisible, isRetry = false) {
     const cached = read(handle);
     if (cached !== null && topicsByHandle.has(handle)) return Promise.resolve(cached);
-    if (results.has(handle)) {
-      if (isVisible) queuedLookups.get(handle)?.visibility.push(isVisible);
-      return results.get(handle);
+    const currentJob = lookupJobs.get(handle) || pendingRetries.get(handle);
+    if (currentJob) {
+      if (isVisible) currentJob.visibility.push(isVisible);
+      if (onUpdate) currentJob.updates.add(onUpdate);
+      return results.get(handle) || Promise.resolve(cached);
     }
-    if (Date.now() - (attempts.get(handle) || 0) < 60000) return Promise.resolve(null);
+    if (!isRetry && Date.now() - (attempts.get(handle) || 0) < 60000) return Promise.resolve(null);
     if (cached === null) statuses.set(handle, { label: "地點查詢排隊中" });
+    let retryAt = 0;
+    const job = {
+      visibility: isVisible ? [isVisible] : [],
+      updates: new Set(onUpdate ? [onUpdate] : []),
+    };
+    const notify = () => {
+      for (const update of job.updates) update();
+    };
+    const rememberRetry = error => {
+      if (Number.isFinite(error.retryAt)) retryAt = Math.max(retryAt, error.retryAt);
+    };
     const run = async () => {
       attempts.set(handle, Date.now());
       if (read(handle) === null) statuses.set(handle, { label: "查詢地點中" });
@@ -99,15 +112,16 @@ const profileLocation = (() => {
           topicsByHandle.set(handle, topics);
           topicErrors.delete(handle);
         }, error => {
+          rememberRetry(error);
           topicErrors.set(handle, error.name === "TimeoutError" ? "Threads 主題查詢逾時" : error.message);
           console.warn("[Threads AI 帳號標記] 主題查詢失敗", handle, error.message);
         })
         .then(() => {
           topicsFinished = true;
-          if (!locationFinished) onUpdate?.();
+          if (!locationFinished) notify();
         });
       try {
-        onUpdate?.();
+        notify();
         const current = await readStored(handle);
         if (current !== null) return current;
         const value = await threadsProfileApi.lookup(handle, getProfile);
@@ -116,6 +130,7 @@ const profileLocation = (() => {
         if (typeof value === "string") await save(handle, value);
         return value;
       } catch (error) {
+        rememberRetry(error);
         statuses.set(handle, {
           label: error.name === "ThreadsSessionUnavailable" ? "登入後查詢地點" : "地點查詢失敗",
           detail: error.name === "TimeoutError" ? "Threads 查詢逾時" : error.message,
@@ -124,17 +139,26 @@ const profileLocation = (() => {
       } finally {
         locationFinished = true;
         try {
-          if (!topicsFinished) onUpdate?.();
+          if (!topicsFinished) notify();
           await topicsTask;
         } finally {
           results.delete(handle);
+          lookupJobs.delete(handle);
+          if (!isRetry && retryAt && job.visibility.length) {
+            const hasVisibleAuthor = () => job.visibility.some(check => check());
+            pendingRetries.set(handle, job);
+            setTimeout(() => {
+              pendingRetries.delete(handle);
+              if (hasVisibleAuthor()) void lookup(handle, notify, hasVisibleAuthor, true).then(notify);
+            }, Math.max(0, retryAt - Date.now()));
+          }
         }
       }
     };
     const task = new Promise(resolve => {
-      const job = { handle, visibility: isVisible ? [isVisible] : [], run: async () => resolve(await run()) };
+      job.run = async () => resolve(await run());
       queue.push(job);
-      queuedLookups.set(handle, job);
+      lookupJobs.set(handle, job);
     });
     results.set(handle, task);
     processQueue();

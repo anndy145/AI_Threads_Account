@@ -3,7 +3,9 @@ const threadsProfileApi = (() => {
   const locationLabel = /^(?:Based in|Account based in|(?:帳號|帳戶)?(?:所在地點|所在地區|所在地|位置)|所在地区|위치|거주지)\s*[:：]?$/i;
   const hidden = /^(未分享|未公開|未顯示|無顯示地點|Not shared|Not displayed|Not shown|Hidden)$/i;
   const topicQueryName = "BarcelonaProfilePageDirectQuery";
+  const cooldownKey = "threads-query-paused-until";
   let pausedUntil = 0;
+  let cooldownLoaded;
 
   function* objects(root) {
     const pending = [root];
@@ -172,7 +174,14 @@ const threadsProfileApi = (() => {
   }
 
   async function request(path, init) {
-    if (Date.now() < pausedUntil) throw new Error("Threads 暫時限制查詢，稍後重試");
+    cooldownLoaded ??= chrome.storage.local.get(cooldownKey).then(stored => {
+      const deadline = stored[cooldownKey];
+      if (Number.isFinite(deadline)) pausedUntil = Math.max(pausedUntil, deadline);
+    }).catch(() => {});
+    await cooldownLoaded;
+    if (Date.now() < pausedUntil) {
+      throw Object.assign(new Error("Threads 暫時限制查詢，稍後重試"), { retryAt: pausedUntil });
+    }
     const url = new URL(path, location.origin);
     const method = init?.method || "GET";
     const requestName = method + " " + url.pathname;
@@ -182,19 +191,25 @@ const threadsProfileApi = (() => {
         ...init, credentials: "same-origin", signal: AbortSignal.timeout(12000),
       });
     } catch (error) {
-      if (error.name === "TimeoutError") throw error;
-      throw new Error(requestName + " 無法連線（" + error.message + "）");
+      const failure = error.name === "TimeoutError" ? error
+        : new Error(requestName + " 無法連線（" + error.message + "）");
+      throw Object.assign(failure, { retryAt: Date.now() + 60000 });
     }
     if (response.type === "opaqueredirect") throw new Error(requestName + " 被 Threads 重新導向");
-    if (response.status === 429) pausedUntil = Date.now() + 60000;
+    if (response.status === 429) {
+      pausedUntil = Date.now() + 60000;
+      await chrome.storage.local.set({ [cooldownKey]: pausedUntil }).catch(() => {});
+      throw Object.assign(new Error(requestName + " 查詢失敗（HTTP 429）"), { retryAt: pausedUntil });
+    }
     if (!response.ok || new URL(response.url).origin !== location.origin) {
       throw new Error(requestName + " 查詢失敗（HTTP " + response.status + "）");
     }
     try {
       return await response.text();
     } catch (error) {
-      if (error.name === "TimeoutError") throw error;
-      throw new Error(requestName + " 無法讀取回應（" + error.message + "）");
+      const failure = error.name === "TimeoutError" ? error
+        : new Error(requestName + " 無法讀取回應（" + error.message + "）");
+      throw Object.assign(failure, { retryAt: Date.now() + 60000 });
     }
   }
 
