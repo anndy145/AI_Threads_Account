@@ -2,7 +2,7 @@
 
 ## 為甚麼做這個專案
 
-Instagram已經[明確規定](https://creators.instagram.com/blog/ai-generated-profile-label)如果是AI生成的個人資料，必須要標註為AI生成的個人檔案。但是我看到threads上看到很多帳號開patreon卻都不明確標示自己是AI生成的人物，所以我才做了這個專案。
+Instagram已經[明確規定](https://creators.instagram.com/blog/ai-generated-profile-label)如果是AI生成的個人資料，必須要標註為AI生成的個人檔案。但是我看到Threads上看到很多帳號開patreon卻都不明確標示自己是AI生成的人物，所以我才做了這個專案，還有偷懶滑Threads的時候假裝有在做專案。
 
 目前這個擴充功能是我手動維護的清單: [`threads_list`](https://github.com/anndy145/AI_Threads_Account/blob/main/data/threads_list.txt)。如果 Threads 貼文作者在名單中，作者名稱右側會顯示一個 **AI 名單標記**。  
 此外我也做了顯示這個帳號的所在地的功能。
@@ -39,10 +39,3 @@ https://www.threads.com/@example
 ```
 
 以 `#` 開頭的行會被視為註解。
-
-儲存名單後，依瀏覽器重新載入擴充功能。
-
-- **Chrome**：回到 `chrome://extensions`，按擴充功能卡片上的 **重新載入**。
-- **Firefox**：回到 `about:debugging#/runtime/this-firefox`，按附加元件旁的 **重新載入**。
-
-重新載入後，刷新 Threads 分頁。
