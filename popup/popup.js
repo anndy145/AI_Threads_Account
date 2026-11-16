@@ -1,7 +1,8 @@
 const form = document.querySelector("#account-search");
 const input = document.querySelector("#account");
 const result = document.querySelector("#search-result");
-const buttons = form.querySelectorAll("button");
+const buttons = form.querySelectorAll('button[type="submit"]');
+const fillAccount = document.querySelector("#fill-account");
 const type = document.querySelector("#account-type");
 const listStatus = document.querySelector("#list-status");
 
@@ -66,6 +67,25 @@ async function refreshLists() {
 
 input.addEventListener("input", () => {
   result.textContent = "";
+});
+
+fillAccount.addEventListener("click", async () => {
+  fillAccount.disabled = true;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const handle = accountList.normaliseHandle(tab?.url || "");
+    if (!handle) {
+      result.textContent = "請開啟 Threads 的個人檔案或貼文。";
+      return;
+    }
+    input.value = "@" + handle;
+    result.textContent = "";
+    input.focus();
+  } catch {
+    result.textContent = "無法讀取目前的分頁，請再試一次。";
+  } finally {
+    fillAccount.disabled = false;
+  }
 });
 
 form.addEventListener("submit", async (event) => {
