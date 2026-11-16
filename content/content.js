@@ -10,9 +10,11 @@
   const visibleAuthors = new IntersectionObserver(entries => {
     for (const { target, isIntersecting } of entries) {
       if (!isIntersecting) continue;
-      visibleAuthors.unobserve(target);
       const badge = badgesByAuthor.get(target);
-      if (!badge?.isConnected) continue;
+      if (!badge?.isConnected) {
+        visibleAuthors.unobserve(target);
+        continue;
+      }
       const handle = badge.getAttribute(MARKED_ATTR);
       const refresh = () => {
         if (badge.isConnected && badge.getAttribute(MARKED_ATTR) === handle) {
@@ -53,7 +55,9 @@
     const green = document.createElement("span");
     green.className = "threads-ai-marker-pill threads-ai-marker-green";
     green.textContent = "白名單";
-    badge.append(location, ai, green);
+    const topics = document.createElement("span");
+    topics.className = "threads-ai-marker-pill threads-ai-marker-listed";
+    badge.append(location, ai, green, topics);
     updateBadge(badge, handle, marks);
     name.after(badge);
     observeAuthor(name, badge);
@@ -73,6 +77,12 @@
     locationBadge.title = location === null
       ? status?.detail || locationText
       : "";
+    const topicBadge = badge.children[3];
+    const topicError = profileLocation.topicError(handle);
+    const topicText = profileLocation.topics(handle)?.join(" · ") || (topicError ? "主題查詢失敗" : "");
+    if (topicBadge.textContent !== topicText) topicBadge.textContent = topicText;
+    topicBadge.title = topicError || "";
+    topicBadge.hidden = !topicText;
   }
 
   function findAuthorName(permalink, handle) {

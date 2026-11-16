@@ -2,6 +2,7 @@ const threadsProfileApi = (() => {
   const endpoint = "/async/wbloks/fetch/?appid=com.bloks.www.text_post_app.about_this_profile_async_action&type=app&__bkv=22713cafbb647b89c4e9c1acdea97d89c8c2046e2f4b18729760e9b1ae0724f7";
   const locationLabel = /^(?:Based in|Account based in|(?:帳號|帳戶)?(?:所在地點|所在地區|所在地|位置)|所在地区|위치|거주지)\s*[:：]?$/i;
   const hidden = /^(未分享|未公開|未顯示|無顯示地點|Not shared|Not displayed|Not shown|Hidden)$/i;
+  const topicQueryName = "BarcelonaProfilePageDirectQuery";
   let pausedUntil = 0;
 
   function* objects(root) {
@@ -48,6 +49,13 @@ const threadsProfileApi = (() => {
       }
     }
     if (ids.size === 1) return ids.values().next().value;
+  }
+
+  function resolveProfileId(profile, handle) {
+    const id = findId(profile, handle) || findProfileRouteId(profile, handle);
+    if (id) return id;
+    const url = profile.querySelector('meta[property="al:ios:url"]')?.content;
+    return url?.match(/^instagram:\/\/user\?userid=(\d+)(?:&|$)/)?.[1];
   }
 
   function parseComponents(data, diagnostics) {
@@ -165,29 +173,177 @@ const threadsProfileApi = (() => {
 
   async function request(path, init) {
     if (Date.now() < pausedUntil) throw new Error("Threads 暫時限制查詢，稍後重試");
-    const response = await fetch(new URL(path, location.origin), {
-      ...init, credentials: "same-origin", signal: AbortSignal.timeout(12000),
-    });
+    const url = new URL(path, location.origin);
+    const method = init?.method || "GET";
+    const requestName = method + " " + url.pathname;
+    let response;
+    try {
+      response = await fetch(url, {
+        ...init, credentials: "same-origin", signal: AbortSignal.timeout(12000),
+      });
+    } catch (error) {
+      if (error.name === "TimeoutError") throw error;
+      throw new Error(requestName + " 無法連線（" + error.message + "）");
+    }
+    if (response.type === "opaqueredirect") throw new Error(requestName + " 被 Threads 重新導向");
     if (response.status === 429) pausedUntil = Date.now() + 60000;
     if (!response.ok || new URL(response.url).origin !== location.origin) {
-      throw new Error("Threads 查詢失敗（HTTP " + response.status + "）");
+      throw new Error(requestName + " 查詢失敗（HTTP " + response.status + "）");
     }
-    return response.text();
+    try {
+      return await response.text();
+    } catch (error) {
+      if (error.name === "TimeoutError") throw error;
+      throw new Error(requestName + " 無法讀取回應（" + error.message + "）");
+    }
   }
 
-  async function lookup(handle) {
+  async function loadProfile(handle) {
+    if (!/^[a-z0-9._-]+$/.test(handle)) throw new Error("無效的 Threads 帳號");
+    return new DOMParser().parseFromString(await request("/@" + handle), "text/html");
+  }
+
+  function* pageData(page, marker) {
+    for (const script of page.querySelectorAll('script[type="application/json"]')) {
+      if (!script.textContent.includes(marker)) continue;
+      try {
+        yield JSON.parse(script.textContent);
+      } catch {
+        // Some inline scripts do not contain complete JSON.
+      }
+    }
+  }
+
+  function readTopics(payloads, handle) {
+    const matching = new Set();
+    let found = false;
+    for (const data of payloads) {
+      for (const user of objects(data)) {
+        if (typeof user.username !== "string" || user.username.toLowerCase() !== handle
+          || !Array.isArray(user.profile_tags?.edges)) continue;
+        found = true;
+        for (const edge of user.profile_tags.edges) {
+          const name = edge?.node?.tag_cluster_name;
+          if (typeof name === "string") {
+            const topic = name.trim().toLowerCase();
+            if (topic === "ai threads") matching.add("AI Threads");
+            if (topic === "ai art") matching.add("AI Art");
+          }
+        }
+      }
+    }
+    if (found) return [...matching];
+    return null;
+  }
+
+  function findTopicQuery(profile) {
+    for (const data of pageData(profile, '"expectedPreloaders"')) {
+      for (const node of objects(data)) {
+        const query = node.expectedPreloaders?.find?.(item =>
+          item?.queryName === topicQueryName &&
+          typeof item.queryID === "string" && /^\d+$/.test(item.queryID) &&
+          typeof item.variables?.userID === "string" && /^\d+$/.test(item.variables.userID));
+        if (query) return query;
+      }
+    }
+  }
+
+  function fallbackTopicQuery(handle, profile) {
+    const userID = findId(document, handle) || resolveProfileId(profile, handle);
+    if (!userID) throw new Error("主題查詢找不到 Threads 作者 ID");
+
+    // Profile query and Relay provider values from the saved logged-in profile pages.
+    const providers = {
+      IsLoggedIn: true,
+      HasProfileInformTreatmentInfo: false,
+      HasMessaging: true,
+      IsLoggedOut: false,
+      HasProfileCardsCollection: false,
+      HasPodcastV2Production: false,
+      HasInsightsProfileM2: true,
+      HasProfileCover: false,
+      IsInternalUser: false,
+      HasPublicViewCountShareCard: true,
+      MessagesHasLiveChatMessaging: true,
+      HasEventBadge: false,
+      HasCommunitiesOrLoggedOut: true,
+      HasWebFavicons: true,
+      HasCommunityTopContributors: false,
+      HasCommunityFounderCard: true,
+      ShouldShowFediverseM1Features: true,
+      OptInNotifWebEnabled: false,
+    };
+    const variables = { showLinkedIGStats: false, userID };
+    for (const [name, value] of Object.entries(providers)) {
+      variables["__relay_internal__pv__Barcelona" + name + "relayprovider"] = value;
+    }
+    return { queryName: topicQueryName, queryID: "28946218358361552", variables };
+  }
+
+  function* graphqlData(text) {
+    const payload = text.trim().replace(/^for\s*\(;;\);\s*/, "");
+    try {
+      yield JSON.parse(payload);
+      return;
+    } catch {
+      // Relay can return a stream of newline-delimited JSON objects.
+    }
+    for (const line of payload.split(/\r?\n/)) {
+      try {
+        yield JSON.parse(line.trim().replace(/^for\s*\(;;\);\s*/, ""));
+      } catch {
+        // Ignore framing lines.
+      }
+    }
+  }
+
+  async function lookupTopics(handle, getProfile) {
+    const inline = readTopics(pageData(document, '"profile_tags"'), handle);
+    if (inline?.length) return inline;
+    const profile = await getProfile();
+    const embedded = readTopics(pageData(profile, '"profile_tags"'), handle);
+    if (embedded !== null) return embedded;
+
+    const query = findTopicQuery(profile) ?? fallbackTopicQuery(handle, profile);
+    const scripts = [document, profile].flatMap(page =>
+      [...page.querySelectorAll("script:not([src])")].map(script => script.textContent)).join("\n");
+    const headers = {
+      "X-FB-Friendly-Name": query.queryName,
+      "X-IG-App-ID": "238260118697367",
+      "X-Root-Field-Name": "xdt_text_app_user",
+    };
+    const csrf = scripts.match(/"InstagramSecurityConfig"\s*,\s*\[[^\]]*\]\s*,\s*\{\s*"csrf_token"\s*:\s*"([^"]+)"/)?.[1];
+    if (csrf) headers["X-CSRFToken"] = csrf;
+    const bloksVersion = scripts.match(/"WebBloksVersioningID"\s*,\s*\[\]\s*,\s*\{\s*"versioningID"\s*:\s*"([a-f0-9]+)"/)?.[1];
+    if (bloksVersion) headers["X-BLOKS-VERSION-ID"] = bloksVersion;
+    const body = new URLSearchParams({
+      __a: "1",
+      __user: "0",
+      fb_dtsg: document.querySelector('input[name="fb_dtsg"]')?.value
+        || scripts.match(/"fb_dtsg"\s*:\s*"([^"]+)"/)?.[1]
+        || scripts.match(/"DTSGInit(?:ial)?Data"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1] || "",
+      lsd: scripts.match(/"LSD"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1] || "",
+      doc_id: query.queryID,
+      fb_api_caller_class: "RelayModern",
+      fb_api_req_friendly_name: query.queryName,
+      server_timestamps: "true",
+      variables: JSON.stringify(query.variables),
+    });
+    // Threads routes this Relay operation through its Distillery GraphQL endpoint.
+    const response = await request("/graphql/query", { method: "POST", headers, body, redirect: "manual" });
+    const topics = readTopics(graphqlData(response), handle);
+    if (topics === null) throw new Error("Threads 回應未包含作者的主題標籤資料");
+    return topics;
+  }
+
+  async function lookup(handle, getProfile) {
     if (!/^[a-z0-9._-]+$/.test(handle)) return null;
     const bootstrap = [...document.querySelectorAll("script:not([src])")].map(script => script.textContent).join("\n");
     let profile;
     let id = findId(document, handle);
     if (!id) {
-      const html = await request("/@" + handle);
-      profile = new DOMParser().parseFromString(html, "text/html");
-      id = findId(profile, handle) || findProfileRouteId(profile, handle);
-      if (!id) {
-        const url = profile.querySelector('meta[property="al:ios:url"]')?.content;
-        id = url?.match(/^instagram:\/\/user\?userid=(\d+)(?:&|$)/)?.[1];
-      }
+      profile = await getProfile();
+      id = resolveProfileId(profile, handle);
     }
     const profileBootstrap = profile
       ? [...profile.querySelectorAll("script:not([src])")].map(script => script.textContent).join("\n")
@@ -234,5 +390,5 @@ const threadsProfileApi = (() => {
     }
   }
 
-  return { lookup };
+  return { loadProfile, lookup, lookupTopics };
 })();

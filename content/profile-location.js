@@ -56,6 +56,8 @@ const profileLocation = (() => {
   }
 
   const results = new Map();
+  const topicsByHandle = new Map();
+  const topicErrors = new Map();
   const attempts = new Map();
   const statuses = new Map();
   const MAX_CONCURRENT_LOOKUPS = 2;
@@ -78,21 +80,32 @@ const profileLocation = (() => {
 
   function lookup(handle, onStart, isVisible) {
     const cached = read(handle);
-    if (cached !== null) return Promise.resolve(cached);
+    if (cached !== null && topicsByHandle.has(handle)) return Promise.resolve(cached);
     if (results.has(handle)) {
       if (isVisible) queuedLookups.get(handle)?.visibility.push(isVisible);
       return results.get(handle);
     }
     if (Date.now() - (attempts.get(handle) || 0) < 60000) return Promise.resolve(null);
-    statuses.set(handle, { label: "地點查詢排隊中" });
+    if (cached === null) statuses.set(handle, { label: "地點查詢排隊中" });
     const run = async () => {
       attempts.set(handle, Date.now());
-      statuses.set(handle, { label: "查詢地點中" });
+      if (read(handle) === null) statuses.set(handle, { label: "查詢地點中" });
+      let profile;
+      const getProfile = () => profile ??= threadsProfileApi.loadProfile(handle);
+      const topicsTask = topicsByHandle.has(handle) ? null : threadsProfileApi.lookupTopics(handle, getProfile)
+        .then(topics => {
+          topicsByHandle.set(handle, topics);
+          topicErrors.delete(handle);
+        }, error => {
+          topicErrors.set(handle, error.name === "TimeoutError" ? "Threads 主題查詢逾時" : error.message);
+          console.warn("[Threads AI 帳號標記] 主題查詢失敗", handle, error.message);
+        })
+        .then(() => onStart?.());
       try {
         onStart?.();
         const current = await readStored(handle);
         if (current !== null) return current;
-        const value = await threadsProfileApi.lookup(handle);
+        const value = await threadsProfileApi.lookup(handle, getProfile);
         const captured = read(handle);
         if (captured !== null) return captured;
         if (typeof value === "string") await save(handle, value);
@@ -104,7 +117,12 @@ const profileLocation = (() => {
         });
         return null;
       } finally {
-        results.delete(handle);
+        try {
+          onStart?.();
+          await topicsTask;
+        } finally {
+          results.delete(handle);
+        }
       }
     };
     const task = new Promise(resolve => {
@@ -136,5 +154,10 @@ const profileLocation = (() => {
     }
   }
 
-  return { read, capture, lookup, status: handle => statuses.get(handle) };
+  return {
+    read, capture, lookup,
+    status: handle => statuses.get(handle),
+    topics: handle => topicsByHandle.get(handle),
+    topicError: handle => topicErrors.get(handle),
+  };
 })();
