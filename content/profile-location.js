@@ -78,7 +78,7 @@ const profileLocation = (() => {
     }
   }
 
-  function lookup(handle, onStart, isVisible) {
+  function lookup(handle, onUpdate, isVisible) {
     const cached = read(handle);
     if (cached !== null && topicsByHandle.has(handle)) return Promise.resolve(cached);
     if (results.has(handle)) {
@@ -92,7 +92,9 @@ const profileLocation = (() => {
       if (read(handle) === null) statuses.set(handle, { label: "查詢地點中" });
       let profile;
       const getProfile = () => profile ??= threadsProfileApi.loadProfile(handle);
-      const topicsTask = topicsByHandle.has(handle) ? null : threadsProfileApi.lookupTopics(handle, getProfile)
+      let locationFinished = false;
+      let topicsFinished = topicsByHandle.has(handle);
+      const topicsTask = topicsFinished ? null : threadsProfileApi.lookupTopics(handle, getProfile)
         .then(topics => {
           topicsByHandle.set(handle, topics);
           topicErrors.delete(handle);
@@ -100,9 +102,12 @@ const profileLocation = (() => {
           topicErrors.set(handle, error.name === "TimeoutError" ? "Threads 主題查詢逾時" : error.message);
           console.warn("[Threads AI 帳號標記] 主題查詢失敗", handle, error.message);
         })
-        .then(() => onStart?.());
+        .then(() => {
+          topicsFinished = true;
+          if (!locationFinished) onUpdate?.();
+        });
       try {
-        onStart?.();
+        onUpdate?.();
         const current = await readStored(handle);
         if (current !== null) return current;
         const value = await threadsProfileApi.lookup(handle, getProfile);
@@ -117,8 +122,9 @@ const profileLocation = (() => {
         });
         return null;
       } finally {
+        locationFinished = true;
         try {
-          onStart?.();
+          if (!topicsFinished) onUpdate?.();
           await topicsTask;
         } finally {
           results.delete(handle);

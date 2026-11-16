@@ -297,6 +297,17 @@ const threadsProfileApi = (() => {
     }
   }
 
+  function readSession(profile) {
+    const pages = profile ? [document, profile] : [document];
+    const scripts = pages.flatMap(page =>
+      [...page.querySelectorAll("script:not([src])")].map(script => script.textContent)).join("\n");
+    const token = document.querySelector('input[name="fb_dtsg"]')?.value
+      || scripts.match(/"fb_dtsg"\s*:\s*"([^"]+)"/)?.[1]
+      || scripts.match(/"DTSGInit(?:ial)?Data"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1];
+    const lsd = scripts.match(/"LSD"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1] || "";
+    return { scripts, token, lsd };
+  }
+
   async function lookupTopics(handle, getProfile) {
     const inline = readTopics(pageData(document, '"profile_tags"'), handle);
     if (inline?.length) return inline;
@@ -305,8 +316,7 @@ const threadsProfileApi = (() => {
     if (embedded !== null) return embedded;
 
     const query = findTopicQuery(profile) ?? fallbackTopicQuery(handle, profile);
-    const scripts = [document, profile].flatMap(page =>
-      [...page.querySelectorAll("script:not([src])")].map(script => script.textContent)).join("\n");
+    const { scripts, token, lsd } = readSession(profile);
     const headers = {
       "X-FB-Friendly-Name": query.queryName,
       "X-IG-App-ID": "238260118697367",
@@ -319,10 +329,8 @@ const threadsProfileApi = (() => {
     const body = new URLSearchParams({
       __a: "1",
       __user: "0",
-      fb_dtsg: document.querySelector('input[name="fb_dtsg"]')?.value
-        || scripts.match(/"fb_dtsg"\s*:\s*"([^"]+)"/)?.[1]
-        || scripts.match(/"DTSGInit(?:ial)?Data"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1] || "",
-      lsd: scripts.match(/"LSD"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1] || "",
+      fb_dtsg: token || "",
+      lsd,
       doc_id: query.queryID,
       fb_api_caller_class: "RelayModern",
       fb_api_req_friendly_name: query.queryName,
@@ -338,20 +346,13 @@ const threadsProfileApi = (() => {
 
   async function lookup(handle, getProfile) {
     if (!/^[a-z0-9._-]+$/.test(handle)) return null;
-    const bootstrap = [...document.querySelectorAll("script:not([src])")].map(script => script.textContent).join("\n");
     let profile;
     let id = findId(document, handle);
     if (!id) {
       profile = await getProfile();
       id = resolveProfileId(profile, handle);
     }
-    const profileBootstrap = profile
-      ? [...profile.querySelectorAll("script:not([src])")].map(script => script.textContent).join("\n")
-      : "";
-    const scripts = bootstrap + "\n" + profileBootstrap;
-    const token = document.querySelector('input[name="fb_dtsg"]')?.value
-      || scripts.match(/"fb_dtsg"\s*:\s*"([^"]+)"/)?.[1]
-      || scripts.match(/"DTSGInit(?:ial)?Data"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1];
+    const { scripts, token, lsd } = readSession(profile);
     if (!token) {
       const error = new Error("Threads 未提供查詢工作階段。登入後請重新整理頁面。");
       error.name = "ThreadsSessionUnavailable";
@@ -361,7 +362,7 @@ const threadsProfileApi = (() => {
 
     const body = new URLSearchParams({
       __user: "0", __a: "1", __comet_req: "29", __d: "www", fb_dtsg: token,
-      lsd: scripts.match(/"LSD"[^{}]*\{[^{}]*"token"\s*:\s*"([^"]+)"/)?.[1] || "",
+      lsd,
       jazoest: scripts.match(/"jazoest"\s*:\s*"?(\d+)/)?.[1] || "",
       params: JSON.stringify({
         atpTriggerSessionID: crypto.randomUUID(),
