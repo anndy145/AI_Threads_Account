@@ -5,7 +5,7 @@
   const POST_PATH = /^\/@[^/]+\/post\/[^/]+\/?$/i;
   const INITIAL_QUERY_DELAY_MS = 1000;
   const pendingAuthors = new Set();
-  const settings = { location: false, topics: false, aiThreads: false, aiArt: false, allowlist: true, manualAi: true };
+  const settings = { location: false, topics: false, aiThreads: false, aiArt: false, allowlist: true, manualAi: true, bundledAi: true };
   const allowlistedBadges = new WeakSet();
   let autoQueryReady = false;
   const badgesByAuthor = new WeakMap();
@@ -69,7 +69,7 @@
     if (marks) {
       const allowlisted = marks.green.has(handle);
       const sources = [];
-      if (!allowlisted && marks.bundledAi.has(handle)) sources.push("內建 AI 名單");
+      if (!allowlisted && settings.bundledAi && marks.bundledAi.has(handle)) sources.push("內建 AI 名單");
       if (!allowlisted && settings.manualAi && marks.manualAi.has(handle)) sources.push("我的 AI 標記");
       const sourceText = sources.join(" · ");
       if (badge.children[1].textContent !== sourceText) badge.children[1].textContent = sourceText;

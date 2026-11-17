@@ -13,22 +13,24 @@ const accountList = (() => {
     aiArt: "show-ai-art",
     allowlist: "show-allowlist",
     manualAi: "show-manual-ai",
+    bundledAi: "show-bundled-ai",
   };
   const legacyTopicsKey = "auto-lookup-topics";
   const displayStorageKeys = [...Object.values(displayKeys), legacyTopicsKey];
 
   async function loadDisplaySettings() {
     const stored = await chrome.storage.local.get(displayStorageKeys);
-    const legacyTopics = stored[legacyTopicsKey] === true;
+    const legacyTopics = stored[legacyTopicsKey] !== false;
     const aiThreads = stored[displayKeys.aiThreads] ?? legacyTopics;
     const aiArt = stored[displayKeys.aiArt] ?? legacyTopics;
     return {
-      location: stored[displayKeys.location] === true,
+      location: stored[displayKeys.location] !== false,
       topics: aiThreads === true || aiArt === true,
       aiThreads: aiThreads === true,
       aiArt: aiArt === true,
       allowlist: stored[displayKeys.allowlist] !== false,
       manualAi: stored[displayKeys.manualAi] !== false,
+      bundledAi: stored[displayKeys.bundledAi] !== false,
     };
   }
   function normaliseHandle(value) {
@@ -98,7 +100,9 @@ const accountList = (() => {
     }
     for (const handle of lists.manualAi) setMark(handle, "ai");
     for (const handle of lists.allowlist) setMark(handle, "green");
-    for (const [feature, key] of Object.entries(displayKeys)) updates[key] = settings[feature];
+    for (const [feature, key] of Object.entries(displayKeys)) {
+      if (typeof settings[feature] === "boolean") updates[key] = settings[feature];
+    }
     if (themeModes.includes(settings.theme)) updates[themeKey] = settings.theme;
     await chrome.storage.local.set(updates);
   }
