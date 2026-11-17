@@ -28,4 +28,10 @@ h3 { margin: 12px 0 6px; font-size: 13px; }
 .account-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
 .account-list span { min-width: 0; overflow-wrap: anywhere; }
 .account-list button { min-height: 32px; flex-shrink: 0; }
+.backup-settings { margin-top: 12px; font-size: 13px; }
+.backup-settings label { margin-top: 10px; }
+.backup-settings input[type="file"] { min-height: 0; max-width: 100%; border: 0; padding: 0; }
+.backup-settings button { min-height: 32px; }
+#backup-status { margin: 8px 0 0; }
+#backup-status:empty { display: none; }
 @media (prefers-color-scheme: dark) { body { background: #18181a; color: #f4f4f5; } section { border-color: #414146; background: #252528; } }

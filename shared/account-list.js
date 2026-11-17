@@ -79,8 +79,24 @@ const accountList = (() => {
     return chrome.storage.local.remove(type === "green" ? [key, manualKey(handle, "ai")] : key);
   }
 
+  async function restorePersonalData(lists, settings, replace) {
+    const updates = {};
+    const setMark = (handle, type) => {
+      updates[manualKey(handle, "ai")] = type === "ai";
+      updates[manualKey(handle, "green")] = type === "green";
+    };
+    if (replace) {
+      const existing = await loadManualHandles();
+      for (const handle of [...existing.ai, ...existing.green]) setMark(handle, null);
+    }
+    for (const handle of lists.manualAi) setMark(handle, "ai");
+    for (const handle of lists.allowlist) setMark(handle, "green");
+    for (const [feature, key] of Object.entries(displayKeys)) updates[key] = settings[feature];
+    await chrome.storage.local.set(updates);
+  }
+
   return {
     normaliseHandle, loadHandles, loadManualHandles, add, remove, manualPrefix,
-    displayKeys, displayStorageKeys, loadDisplaySettings,
+    displayKeys, displayStorageKeys, loadDisplaySettings, restorePersonalData,
   };
 })();

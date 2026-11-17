@@ -154,6 +154,16 @@ async function initDisplaySettings() {
       checkbox.addEventListener("change", () => save({ [feature]: checkbox.checked }));
     }
     allTopics.addEventListener("change", () => save({ aiThreads: allTopics.checked, aiArt: allTopics.checked }));
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "local") return;
+      let changed = false;
+      for (const { feature, key } of fields) {
+        if (typeof changes[key]?.newValue !== "boolean") continue;
+        settings[feature] = changes[key].newValue;
+        changed = true;
+      }
+      if (changed) render();
+    });
     render();
     for (const control of controls) control.disabled = false;
   } catch {

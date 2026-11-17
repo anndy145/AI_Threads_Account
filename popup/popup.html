@@ -47,8 +47,26 @@
         <h3>AI 標記</h3>
         <ul id="manual-ai" class="account-list" aria-label="個人 AI 標記"></ul>
       </section>
+      <section class="backup-settings" aria-labelledby="backup-title">
+        <h2 id="backup-title">備份與還原</h2>
+        <button id="backup-export" type="button">匯出我的資料</button>
+        <label for="backup-file">選擇備份檔案</label>
+        <input id="backup-file" type="file" accept=".json,application/json">
+        <div id="backup-options" hidden>
+          <p id="backup-preview"></p>
+          <label for="backup-mode">匯入方式</label>
+          <select id="backup-mode">
+            <option value="merge">合併名單</option>
+            <option value="replace">取代個人名單</option>
+          </select>
+          <p>兩種方式都會套用備份中的顯示設定。合併時，同帳號以匯入的標記為準。</p>
+          <button id="backup-import" type="button">確認匯入</button>
+        </div>
+        <p id="backup-status" role="status"></p>
+      </section>
     </main>
     <script src="../shared/account-list.js"></script>
     <script src="popup.js"></script>
+    <script src="backup.js"></script>
   </body>
 </html>
