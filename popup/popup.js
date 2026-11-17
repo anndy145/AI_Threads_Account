@@ -7,8 +7,14 @@ const type = document.querySelector("#account-type");
 const listStatus = document.querySelector("#list-status");
 
 async function showSearchResult(query, handle) {
-  const { ai, green } = await accountList.loadHandles();
-  const label = green.has(handle) ? "白名單" : ai.has(handle) ? "AI 帳號" : "";
+  const { bundledAi, manualAi, green } = await accountList.loadHandles();
+  const labels = [];
+  if (green.has(handle)) labels.push("白名單");
+  else {
+    if (bundledAi.has(handle)) labels.push("內建 AI 名單");
+    if (manualAi.has(handle)) labels.push("我的 AI 標記");
+  }
+  const label = labels.join(" · ");
   if (input.value === query) {
     result.textContent = "@" + handle + (label ? " · " + label : " 未在名單內。");
   }
@@ -114,3 +120,45 @@ form.addEventListener("submit", async (event) => {
 });
 
 void refreshLists();
+
+async function initDisplaySettings() {
+  const status = document.querySelector("#lookup-status");
+  const allTopics = document.querySelector("#lookup-topics");
+  try {
+    const settings = await accountList.loadDisplaySettings();
+    const fields = Object.entries(accountList.displayKeys).map(([feature, key]) => ({
+      feature, key, checkbox: document.querySelector("#lookup-" + feature),
+    }));
+    const controls = [allTopics, ...fields.map(field => field.checkbox)];
+    const render = () => {
+      for (const { feature, checkbox } of fields) checkbox.checked = settings[feature];
+      allTopics.checked = settings.aiThreads && settings.aiArt;
+      allTopics.indeterminate = settings.aiThreads !== settings.aiArt;
+    };
+    const save = async changes => {
+      for (const control of controls) control.disabled = true;
+      status.textContent = "";
+      try {
+        const stored = Object.fromEntries(Object.entries(changes).map(([feature, value]) =>
+          [accountList.displayKeys[feature], value]));
+        await chrome.storage.local.set(stored);
+        Object.assign(settings, changes);
+      } catch {
+        status.textContent = "無法儲存顯示設定，請再試一次。";
+      } finally {
+        render();
+        for (const control of controls) control.disabled = false;
+      }
+    };
+    for (const { feature, checkbox } of fields) {
+      checkbox.addEventListener("change", () => save({ [feature]: checkbox.checked }));
+    }
+    allTopics.addEventListener("change", () => save({ aiThreads: allTopics.checked, aiArt: allTopics.checked }));
+    render();
+    for (const control of controls) control.disabled = false;
+  } catch {
+    status.textContent = "無法讀取顯示設定，請重新開啟 Popup。";
+  }
+}
+
+void initDisplaySettings();

@@ -78,17 +78,24 @@ const profileLocation = (() => {
     }
   }
 
-  function lookup(handle, onUpdate, isVisible, isRetry = false) {
+  function lookup(handle, onUpdate, isVisible, settings, isRetry = false) {
     const cached = read(handle);
-    if (cached !== null && topicsByHandle.has(handle)) return Promise.resolve(cached);
+    if ((!settings.location || cached !== null) && (!settings.topics || topicsByHandle.has(handle))) {
+      return Promise.resolve(cached);
+    }
     const currentJob = lookupJobs.get(handle) || pendingRetries.get(handle);
     if (currentJob) {
       if (isVisible) currentJob.visibility.push(isVisible);
       if (onUpdate) currentJob.updates.add(onUpdate);
-      return results.get(handle) || Promise.resolve(cached);
+      const inFlight = results.get(handle);
+      return inFlight ? inFlight.then(() => lookup(handle, onUpdate, isVisible, settings, isRetry)) : Promise.resolve(cached);
     }
-    if (!isRetry && Date.now() - (attempts.get(handle) || 0) < 60000) return Promise.resolve(null);
-    if (cached === null) statuses.set(handle, { label: "地點查詢排隊中" });
+    const canAttempt = feature => settings[feature]
+      && (isRetry || Date.now() - (attempts.get(handle)?.[feature] ?? -Infinity) >= 60000);
+    const needsLocation = () => canAttempt("location") && read(handle) === null;
+    const needsTopics = () => canAttempt("topics") && !topicsByHandle.has(handle);
+    if (!needsLocation() && !needsTopics()) return Promise.resolve(cached);
+    if (needsLocation()) statuses.set(handle, { label: "地點查詢排隊中" });
     let retryAt = 0;
     const job = {
       visibility: isVisible ? [isVisible] : [],
@@ -101,12 +108,19 @@ const profileLocation = (() => {
       if (Number.isFinite(error.retryAt)) retryAt = Math.max(retryAt, error.retryAt);
     };
     const run = async () => {
-      attempts.set(handle, Date.now());
-      if (read(handle) === null) statuses.set(handle, { label: "查詢地點中" });
+      const checkLocation = needsLocation();
+      const checkTopics = needsTopics();
+      const previous = attempts.get(handle) || {};
+      if (checkLocation) {
+        previous.location = Date.now();
+        statuses.set(handle, { label: "查詢地點中" });
+      }
+      if (checkTopics) previous.topics = Date.now();
+      if (checkLocation || checkTopics) attempts.set(handle, previous);
       let profile;
       const getProfile = () => profile ??= threadsProfileApi.loadProfile(handle);
       let locationFinished = false;
-      let topicsFinished = topicsByHandle.has(handle);
+      let topicsFinished = !checkTopics;
       const topicsTask = topicsFinished ? null : threadsProfileApi.lookupTopics(handle, getProfile)
         .then(topics => {
           topicsByHandle.set(handle, topics);
@@ -122,8 +136,9 @@ const profileLocation = (() => {
         });
       try {
         notify();
+        if (!checkLocation) return read(handle);
         const current = await readStored(handle);
-        if (current !== null) return current;
+        if (current !== null || !settings.location) return current;
         const value = await threadsProfileApi.lookup(handle, getProfile);
         const captured = read(handle);
         if (captured !== null) return captured;
@@ -149,7 +164,7 @@ const profileLocation = (() => {
             pendingRetries.set(handle, job);
             setTimeout(() => {
               pendingRetries.delete(handle);
-              if (hasVisibleAuthor()) void lookup(handle, notify, hasVisibleAuthor, true).then(notify);
+              if (hasVisibleAuthor()) void lookup(handle, notify, hasVisibleAuthor, settings, true).then(notify);
             }, Math.max(0, retryAt - Date.now()));
           }
         }

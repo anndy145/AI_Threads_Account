@@ -23,7 +23,8 @@
   white-space: nowrap;
 }
 
-.threads-ai-marker-pill[hidden] {
+.threads-ai-marker-pill[hidden],
+.threads-ai-marker-badge[hidden] {
   display: none;
 }
 

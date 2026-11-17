@@ -27,6 +27,18 @@
           <button type="submit" value="add">新增標記</button>
         </div>
       </form>
+      <section class="lookup-settings" aria-labelledby="lookup-title">
+        <h2 id="lookup-title">顯示標籤</h2>
+        <label><input id="lookup-location" type="checkbox" disabled> 個人檔案所在地</label>
+        <label id="topic-group-label"><input id="lookup-topics" type="checkbox" disabled> 個人檔案標籤</label>
+        <div class="topic-options" role="group" aria-labelledby="topic-group-label">
+          <label><input id="lookup-aiThreads" type="checkbox" disabled> AI Threads</label>
+          <label><input id="lookup-aiArt" type="checkbox" disabled> AI Art</label>
+        </div>
+        <label><input id="lookup-allowlist" type="checkbox" disabled> 我的白名單</label>
+        <label><input id="lookup-manualAi" type="checkbox" disabled> 我的 AI 名單標記</label>
+        <p id="lookup-status" role="status"></p>
+      </section>
       <section aria-labelledby="personal-lists-title">
         <h2 id="personal-lists-title">個人名單</h2>
         <p id="list-status" role="status"></p>

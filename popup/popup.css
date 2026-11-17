@@ -1,5 +1,5 @@
 :root { color-scheme: light dark; }
-body { margin: 0; min-width: 320px; background: #fff; color: #1d1d1f; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { margin: 0; width: 360px; background: #fff; color: #1d1d1f; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 main { padding: 20px; }
 h1 { margin: 0; font-size: 20px; line-height: 1.25; }
 form { margin: 16px 0; }
@@ -16,6 +16,12 @@ button:disabled { opacity: .65; cursor: wait; }
 section { padding: 14px; border: 1px solid #dedee3; border-radius: 12px; background: #fafafa; }
 h2 { margin: 0 0 8px; font-size: 14px; }
 h3 { margin: 12px 0 6px; font-size: 13px; }
+.lookup-settings { margin-bottom: 12px; }
+.lookup-settings label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.lookup-settings input[type="checkbox"] { flex: none; min-height: auto; margin: 0; }
+.topic-options { margin-inline-start: 20px; }
+#lookup-status { margin: 0 0 8px; font-size: 13px; }
+#lookup-status:empty { display: none; }
 #list-status { margin: 0; font-size: 13px; }
 #list-status:empty { display: none; }
 .account-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }

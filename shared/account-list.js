@@ -1,5 +1,29 @@
 const accountList = (() => {
   const manualPrefix = "manual-account:";
+  const displayKeys = {
+    location: "auto-lookup-location",
+    aiThreads: "show-ai-threads",
+    aiArt: "show-ai-art",
+    allowlist: "show-allowlist",
+    manualAi: "show-manual-ai",
+  };
+  const legacyTopicsKey = "auto-lookup-topics";
+  const displayStorageKeys = [...Object.values(displayKeys), legacyTopicsKey];
+
+  async function loadDisplaySettings() {
+    const stored = await chrome.storage.local.get(displayStorageKeys);
+    const legacyTopics = stored[legacyTopicsKey] === true;
+    const aiThreads = stored[displayKeys.aiThreads] ?? legacyTopics;
+    const aiArt = stored[displayKeys.aiArt] ?? legacyTopics;
+    return {
+      location: stored[displayKeys.location] === true,
+      topics: aiThreads === true || aiArt === true,
+      aiThreads: aiThreads === true,
+      aiArt: aiArt === true,
+      allowlist: stored[displayKeys.allowlist] !== false,
+      manualAi: stored[displayKeys.manualAi] !== false,
+    };
+  }
   function normaliseHandle(value) {
     const trimmed = value.trim();
     if (!trimmed || trimmed.startsWith("#")) return null;
@@ -22,8 +46,7 @@ const accountList = (() => {
     if (!response.ok) throw new Error("無法讀取名單：" + response.status);
     const ai = new Set((await response.text()).split(/\r?\n/).map(normaliseHandle).filter(Boolean));
     const manual = await loadManualHandles();
-    for (const handle of manual.ai) ai.add(handle);
-    return { ai, green: manual.green };
+    return { bundledAi: ai, manualAi: manual.ai, green: manual.green };
   }
 
   async function loadManualHandles() {
@@ -56,5 +79,8 @@ const accountList = (() => {
     return chrome.storage.local.remove(type === "green" ? [key, manualKey(handle, "ai")] : key);
   }
 
-  return { normaliseHandle, loadHandles, loadManualHandles, add, remove, manualPrefix };
+  return {
+    normaliseHandle, loadHandles, loadManualHandles, add, remove, manualPrefix,
+    displayKeys, displayStorageKeys, loadDisplaySettings,
+  };
 })();
