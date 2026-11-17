@@ -3,8 +3,44 @@ const input = document.querySelector("#account");
 const result = document.querySelector("#search-result");
 const buttons = form.querySelectorAll('button[type="submit"]');
 const fillAccount = document.querySelector("#fill-account");
+const openSettingsTab = document.querySelector("#open-settings-tab");
 const type = document.querySelector("#account-type");
 const listStatus = document.querySelector("#list-status");
+const pageParams = new URLSearchParams(window.location.search);
+const isSettingsTab = pageParams.get("view") === "settings";
+const sourceHandle = isSettingsTab ? accountList.normaliseHandle(pageParams.get("from") || "") : null;
+
+if (isSettingsTab) {
+  document.body.classList.add("settings-tab");
+  document.title = "Threads AI 帳號標記設定";
+  openSettingsTab.hidden = true;
+  fillAccount.hidden = !sourceHandle;
+  fillAccount.textContent = "帶入原分頁帳號";
+  const searchHandle = accountList.normaliseHandle(pageParams.get("account") || "");
+  if (searchHandle) input.value = "@" + searchHandle;
+}
+
+async function activeThreadsHandle() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return accountList.normaliseHandle(tab?.url || "");
+}
+
+openSettingsTab.addEventListener("click", async () => {
+  openSettingsTab.disabled = true;
+  try {
+    const url = new URL(chrome.runtime.getURL("popup/popup.html"));
+    url.searchParams.set("view", "settings");
+    const searchHandle = accountList.normaliseHandle(input.value);
+    if (searchHandle) url.searchParams.set("account", searchHandle);
+    const handle = await activeThreadsHandle().catch(() => null);
+    if (handle) url.searchParams.set("from", handle);
+    await chrome.tabs.create({ url: url.href });
+  } catch {
+    result.textContent = "無法開啟設定分頁，請再試一次。";
+  } finally {
+    openSettingsTab.disabled = false;
+  }
+});
 
 async function showSearchResult(query, handle) {
   const { bundledAi, manualAi, green } = await accountList.loadHandles();
@@ -78,8 +114,7 @@ input.addEventListener("input", () => {
 fillAccount.addEventListener("click", async () => {
   fillAccount.disabled = true;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const handle = accountList.normaliseHandle(tab?.url || "");
+    const handle = isSettingsTab ? sourceHandle : await activeThreadsHandle();
     if (!handle) {
       result.textContent = "請開啟 Threads 的個人檔案或貼文。";
       return;
