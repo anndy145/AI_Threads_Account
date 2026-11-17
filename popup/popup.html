@@ -10,7 +10,10 @@
     <main>
       <header class="popup-header">
         <h1>Threads AI 帳號標記</h1>
-        <button id="open-settings-tab" type="button">在分頁中開啟</button>
+        <div class="header-actions">
+          <button id="open-settings-tab" type="button">在分頁中開啟</button>
+          <button id="theme-toggle" type="button" aria-label="切換明暗模式" disabled>◐</button>
+        </div>
       </header>
       <form id="account-search">
         <label for="account">Threads 帳號</label>
@@ -42,19 +45,18 @@
         <label><input id="lookup-manualAi" type="checkbox" disabled> 我的 AI 名單標記</label>
         <p id="lookup-status" role="status"></p>
       </section>
-      <section aria-labelledby="personal-lists-title">
-        <h2 id="personal-lists-title">個人名單</h2>
-        <p id="list-status" role="status"></p>
-        <h3>白名單</h3>
-        <ul id="manual-green" class="account-list" aria-label="個人白名單"></ul>
-        <h3>AI 標記</h3>
-        <ul id="manual-ai" class="account-list" aria-label="個人 AI 標記"></ul>
-      </section>
       <section class="backup-settings" aria-labelledby="backup-title">
         <h2 id="backup-title">備份與還原</h2>
-        <button id="backup-export" type="button">匯出我的資料</button>
-        <label for="backup-file">選擇備份檔案</label>
-        <input id="backup-file" type="file" accept=".json,application/json">
+        <div class="backup-actions">
+          <div class="backup-card">
+            <h3>備份</h3>
+            <button id="backup-export" type="button">匯出</button>
+          </div>
+          <div class="backup-card">
+            <h3><label for="backup-file">還原</label></h3>
+            <input id="backup-file" type="file" accept=".json,application/json">
+          </div>
+        </div>
         <div id="backup-options" hidden>
           <p id="backup-preview"></p>
           <label for="backup-mode">匯入方式</label>
@@ -66,6 +68,14 @@
           <button id="backup-import" type="button">確認匯入</button>
         </div>
         <p id="backup-status" role="status"></p>
+      </section>
+      <section aria-labelledby="personal-lists-title">
+        <h2 id="personal-lists-title">個人名單</h2>
+        <p id="list-status" role="status"></p>
+        <h3>白名單</h3>
+        <ul id="manual-green" class="account-list" aria-label="個人白名單"></ul>
+        <h3>AI 標記</h3>
+        <ul id="manual-ai" class="account-list" aria-label="個人 AI 標記"></ul>
       </section>
     </main>
     <script src="../shared/account-list.js"></script>

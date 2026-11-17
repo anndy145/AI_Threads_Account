@@ -1,5 +1,12 @@
 const accountList = (() => {
   const manualPrefix = "manual-account:";
+  const themeKey = "popup-theme";
+  const themeModes = ["system", "light", "dark"];
+
+  async function loadTheme() {
+    const stored = await chrome.storage.local.get(themeKey);
+    return themeModes.includes(stored[themeKey]) ? stored[themeKey] : "system";
+  }
   const displayKeys = {
     location: "auto-lookup-location",
     aiThreads: "show-ai-threads",
@@ -92,11 +99,12 @@ const accountList = (() => {
     for (const handle of lists.manualAi) setMark(handle, "ai");
     for (const handle of lists.allowlist) setMark(handle, "green");
     for (const [feature, key] of Object.entries(displayKeys)) updates[key] = settings[feature];
+    if (themeModes.includes(settings.theme)) updates[themeKey] = settings.theme;
     await chrome.storage.local.set(updates);
   }
 
   return {
     normaliseHandle, loadHandles, loadManualHandles, add, remove, manualPrefix,
-    displayKeys, displayStorageKeys, loadDisplaySettings, restorePersonalData,
+    displayKeys, displayStorageKeys, loadDisplaySettings, restorePersonalData, themeKey, themeModes, loadTheme,
   };
 })();

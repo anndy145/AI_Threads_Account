@@ -207,3 +207,50 @@ async function initDisplaySettings() {
 }
 
 void initDisplaySettings();
+
+async function initTheme() {
+  const button = document.querySelector("#theme-toggle");
+  const browserTheme = window.matchMedia("(prefers-color-scheme: dark)");
+  let theme = "system";
+  let changedWhileLoading = false;
+  const activeTheme = () => theme === "system" ? (browserTheme.matches ? "dark" : "light") : theme;
+  const render = () => {
+    const dark = activeTheme() === "dark";
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    const label = dark ? "切換到明亮模式" : "切換到夜間模式";
+    button.textContent = dark ? "☀︎" : "◐";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  };
+  browserTheme.addEventListener("change", render);
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !Object.hasOwn(changes, accountList.themeKey)) return;
+    const value = changes[accountList.themeKey].newValue;
+    changedWhileLoading = true;
+    theme = accountList.themeModes.includes(value) ? value : "system";
+    render();
+  });
+  try {
+    const savedTheme = await accountList.loadTheme();
+    if (!changedWhileLoading) theme = savedTheme;
+  } catch {
+    // Keep following the browser preference when storage is unavailable.
+  }
+  render();
+  button.disabled = false;
+  button.addEventListener("click", async () => {
+    const next = activeTheme() === "dark" ? "light" : "dark";
+    button.disabled = true;
+    try {
+      await chrome.storage.local.set({ [accountList.themeKey]: next });
+      theme = next;
+      render();
+    } catch {
+      result.textContent = "無法儲存明暗模式，請再試一次。";
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+void initTheme();

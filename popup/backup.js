@@ -49,6 +49,11 @@
       if (typeof value !== "boolean") throw new Error("備份的顯示設定不完整或格式不正確。");
       settings[feature] = value;
     }
+    if (Object.hasOwn(backup.settings, "theme")) {
+      const theme = backup.settings.theme;
+      if (!accountList.themeModes.includes(theme)) throw new Error("備份中的明暗模式不正確。");
+      settings.theme = theme;
+    }
     return { lists: { allowlist, manualAi }, settings };
   }
 
@@ -56,14 +61,17 @@
     exportButton.disabled = true;
     status.textContent = "";
     try {
-      const [lists, settings] = await Promise.all([
-        accountList.loadManualHandles(), accountList.loadDisplaySettings(),
+      const [lists, settings, theme] = await Promise.all([
+        accountList.loadManualHandles(), accountList.loadDisplaySettings(), accountList.loadTheme(),
       ]);
       const backup = {
         version: backupVersion,
         lists: { allowlist: [...lists.green].sort(), manualAi: [...lists.ai].sort() },
-        settings: Object.fromEntries(Object.entries(backupSettingNames).map(([feature, name]) =>
-          [name, settings[feature]])),
+        settings: {
+          ...Object.fromEntries(Object.entries(backupSettingNames).map(([feature, name]) =>
+            [name, settings[feature]])),
+          theme,
+        },
       };
       const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2) + "\n"], {
         type: "application/json",
