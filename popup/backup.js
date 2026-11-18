@@ -8,6 +8,7 @@
     allowlist: "showAllowlist",
     manualAi: "showManualAi",
     bundledAi: "showBundledAi",
+    scam: "showScamAccounts",
   };
   const exportButton = document.querySelector("#backup-export");
   const fileInput = document.querySelector("#backup-file");
@@ -46,7 +47,7 @@
     }
     const settings = {};
     for (const [feature, name] of Object.entries(backupSettingNames)) {
-      if (feature === "bundledAi" && !Object.hasOwn(backup.settings ?? {}, name)) continue;
+      if ((feature === "bundledAi" || feature === "scam") && !Object.hasOwn(backup.settings ?? {}, name)) continue;
       const value = backup.settings?.[name];
       if (typeof value !== "boolean") throw new Error("備份的顯示設定不完整或格式不正確。");
       settings[feature] = value;

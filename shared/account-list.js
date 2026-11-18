@@ -14,6 +14,7 @@ const accountList = (() => {
     allowlist: "show-allowlist",
     manualAi: "show-manual-ai",
     bundledAi: "show-bundled-ai",
+    scam: "show-scam-accounts",
   };
   const legacyTopicsKey = "auto-lookup-topics";
   const displayStorageKeys = [...Object.values(displayKeys), legacyTopicsKey];
@@ -31,6 +32,7 @@ const accountList = (() => {
       allowlist: stored[displayKeys.allowlist] !== false,
       manualAi: stored[displayKeys.manualAi] !== false,
       bundledAi: stored[displayKeys.bundledAi] !== false,
+      scam: stored[displayKeys.scam] !== false,
     };
   }
   function normaliseHandle(value) {
@@ -50,12 +52,19 @@ const accountList = (() => {
     }
   }
 
-  async function loadHandles() {
-    const response = await fetch(chrome.runtime.getURL("data/threads_list.txt"));
+  async function loadBundledList(path) {
+    const response = await fetch(chrome.runtime.getURL(path));
     if (!response.ok) throw new Error("無法讀取名單：" + response.status);
-    const ai = new Set((await response.text()).split(/\r?\n/).map(normaliseHandle).filter(Boolean));
-    const manual = await loadManualHandles();
-    return { bundledAi: ai, manualAi: manual.ai, green: manual.green };
+    return new Set((await response.text()).split(/\r?\n/).map(normaliseHandle).filter(Boolean));
+  }
+
+  async function loadHandles() {
+    const [bundledAi, scam, manual] = await Promise.all([
+      loadBundledList("data/threads_list.txt"),
+      loadBundledList("data/threads_scam_list.txt"),
+      loadManualHandles(),
+    ]);
+    return { bundledAi, scam, manualAi: manual.ai, green: manual.green };
   }
 
   async function loadManualHandles() {

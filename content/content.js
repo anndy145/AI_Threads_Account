@@ -5,7 +5,7 @@
   const POST_PATH = /^\/@[^/]+\/post\/[^/]+\/?$/i;
   const INITIAL_QUERY_DELAY_MS = 1000;
   const pendingAuthors = new Set();
-  const settings = { location: false, topics: false, aiThreads: false, aiArt: false, allowlist: true, manualAi: true, bundledAi: true };
+  const settings = { location: false, topics: false, aiThreads: false, aiArt: false, allowlist: true, manualAi: true, bundledAi: true, scam: true };
   const allowlistedBadges = new WeakSet();
   let autoQueryReady = false;
   const badgesByAuthor = new WeakMap();
@@ -58,7 +58,11 @@
     green.textContent = "白名單";
     const topics = document.createElement("span");
     topics.className = "threads-ai-marker-pill threads-ai-marker-listed";
-    badge.append(location, ai, green, topics);
+    const scam = document.createElement("span");
+    scam.className = "threads-ai-marker-pill threads-ai-marker-listed";
+    scam.textContent = "詐騙名單標記";
+    scam.title = "來源：內建 Threads 詐騙帳號名單";
+    badge.append(location, ai, green, topics, scam);
     updateBadge(badge, handle, marks);
     name.after(badge);
     observeAuthor(name, badge);
@@ -74,6 +78,7 @@
       const sourceText = sources.join(" · ");
       if (badge.children[1].textContent !== sourceText) badge.children[1].textContent = sourceText;
       badge.children[1].hidden = !sourceText;
+      badge.children[4].hidden = allowlisted || !settings.scam || !marks.scam.has(handle);
       if (allowlisted) allowlistedBadges.add(badge);
       else allowlistedBadges.delete(badge);
     }

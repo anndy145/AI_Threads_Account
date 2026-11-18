@@ -19,7 +19,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["data/threads_list.txt"],
+      "resources": ["data/threads_list.txt", "data/threads_scam_list.txt"],
       "matches": ["https://www.threads.com/*", "https://threads.com/*"]
     }
   ],

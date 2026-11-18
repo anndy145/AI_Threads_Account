@@ -43,12 +43,13 @@ openSettingsTab.addEventListener("click", async () => {
 });
 
 async function showSearchResult(query, handle) {
-  const { bundledAi, manualAi, green } = await accountList.loadHandles();
+  const { bundledAi, manualAi, green, scam } = await accountList.loadHandles();
   const labels = [];
   if (green.has(handle)) labels.push("白名單");
   else {
     if (bundledAi.has(handle)) labels.push("內建 AI 名單");
     if (manualAi.has(handle)) labels.push("我的 AI 標記");
+    if (scam.has(handle)) labels.push("詐騙名單標記");
   }
   const label = labels.join(" · ");
   if (input.value === query) {
